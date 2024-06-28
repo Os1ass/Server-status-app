@@ -24,7 +24,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 		0,
 		CLASS_NAME,
 		L"Server status",
-		WS_OVERLAPPEDWINDOW,
+		WS_OVERLAPPEDWINDOW ^ WS_THICKFRAME,
 		CW_USEDEFAULT,
 		CW_USEDEFAULT,
 		500, 400,
@@ -59,7 +59,8 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
     {
         g_hEditRecv = CreateWindow(L"EDIT", NULL,
-            WS_VISIBLE | WS_CHILD | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
+			WS_HSCROLL | WS_VSCROLL | WS_VISIBLE | WS_CHILD | 
+			WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY,
             10, 10, 460, 330, hwnd, NULL, NULL, NULL);
     }
     return 0;
