@@ -104,8 +104,7 @@ void ProcessPipeConnection(LPOVERLAPPED overlap)
 
 		if (GetLastError() == ERROR_PIPE_NOT_CONNECTED)
 		{
-			Sleep(500);
-			continue;
+			break;
 		}
 		if (!fSuccess && GetLastError() != ERROR_IO_PENDING)
 		{
@@ -132,34 +131,6 @@ void ProcessPipeConnection(LPOVERLAPPED overlap)
 
 DWORD WINAPI PipeHandle(LPVOID lpParam)
 {
-	do {
-		g_hPipe = CreateFile(
-			g_pipeName,
-			GENERIC_READ,
-			0,
-			NULL,
-			OPEN_EXISTING,
-			FILE_ATTRIBUTE_READONLY |
-			FILE_FLAG_OVERLAPPED,
-			NULL
-		);
-	} while ((GetLastError() == ERROR_PIPE_BUSY ||
-			 GetLastError() == ERROR_FILE_NOT_FOUND) &&
-			 WaitForSingleObject(g_stopEvent, 0) != WAIT_OBJECT_0);
-
-	if (g_hPipe == INVALID_HANDLE_VALUE)
-	{
-		OutputDebugString(L"Create file failed");
-		SetWindowText(g_hEditRecv, L"Ooops... some error.");
-		return GetLastError();
-	}
-
-	if (WaitForSingleObject(g_stopEvent, 0) == WAIT_OBJECT_0)
-	{
-		CloseHandle(g_hPipe);
-		return 0;
-	}
-
 	OVERLAPPED overlap;
 	overlap.hEvent = CreateEvent(NULL, TRUE, TRUE, NULL);
 	overlap.Offset = 0;
@@ -173,9 +144,50 @@ DWORD WINAPI PipeHandle(LPVOID lpParam)
 		return GetLastError();
 	}
 
-	ProcessPipeConnection(&overlap);
+	while (WaitForSingleObject(g_stopEvent, 0) != WAIT_OBJECT_0)
+	{
+		do {
+			Sleep(500);
+			g_hPipe = CreateFile(
+				g_pipeName,
+				GENERIC_READ,
+				0,
+				NULL,
+				OPEN_EXISTING,
+				FILE_ATTRIBUTE_READONLY |
+				FILE_FLAG_OVERLAPPED,
+				NULL
+			);
+		} while ((GetLastError() == ERROR_PIPE_BUSY ||
+			GetLastError() == ERROR_FILE_NOT_FOUND) &&
+			WaitForSingleObject(g_stopEvent, 0) != WAIT_OBJECT_0);
+
+		if (g_hPipe == INVALID_HANDLE_VALUE)
+		{
+			OutputDebugString(L"Create file failed");
+			SetWindowText(g_hEditRecv, L"Ooops... some error.");
+			return GetLastError();
+		}
+
+		if (WaitForSingleObject(g_stopEvent, 0) == WAIT_OBJECT_0)
+		{
+			CloseHandle(g_hPipe);
+			return 0;
+		}
+
+		ProcessPipeConnection(&overlap);
+		if (GetLastError() == ERROR_BROKEN_PIPE)
+		{
+			SetWindowText(g_hEditRecv, L"Server stopped\r\nWaiting server to start...\0");
+		}
+		else
+		{
+			SetWindowText(g_hEditRecv, L"Unknown error\r\nSeraching for server...\0");
+		}
+		CloseHandle(g_hPipe);
+	}
+
 	CloseHandle(overlap.hEvent);
-	CloseHandle(g_hPipe);
 	return 0;
 }
 
